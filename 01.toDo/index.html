@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <link rel="stylesheet" href="./css/index.css">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+
+        .list-complete-item {
+            transition: all 1s;
+            display: block;
+            margin-right: 10px;
+        }
+
+        .list-complete-enter,
+        .list-complete-leave-to
+        /* .list-complete-leave-active for below version 2.1.8 */
+
+            {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+
+        .list-complete-leave-active {
+            position: absolute;
+        }
+    </style>
+</head>
+
+<body>
+    <section class="todoapp">
+        <header class="header">
+            <h1>todos</h1>
+            <!-- 
+                输入框
+                    v-model.trim="inputTodo" 双向数据绑定 去空格
+                    @keyup.enter='addTodo' 绑定按下enter事件
+             -->
+            <input autofocus="autofocus" v-model.trim="inputTodo" @keyup.enter='addTodo' autocomplete="off" placeholder="你要干什么?" class="new-todo">
+        </header>
+        <section class="main">
+            <input type="checkbox" class="toggle-all">
+            <ul v-cloak class="todo-list">
+                <!-- 
+                    li标签
+                        v-for循环todos
+                        直接写死的class 这种无论如何都是存在的
+                        {completed:item.completed,editing:item.isEditing}
+                             根据循环的元素的completed值决定是否有 completed这个类名
+                             根据循环的元素的isEditing值决定是否有 editing这个类名
+                    button删除按钮
+                        @click = delTodo(index) 根据索引删除待办事项
+                    label标签
+                        {{item.content}} 待办事项的内容
+                        @dblclick="enterEdit(index)" 双击传递索引 进入编辑状态
+                    编辑的input
+                        v-model="item.content" 双向绑定数据
+                        v-zhaosky 自定义指令 让元素自动获取焦点
+                        @blur="saveEdit(index)" 失去焦点时传递索引 保存修改
+                -->
+                <transition-group name="list-complete" tag="p">
+                    <li class="todo list-complete-item" :class="{completed:item.completed,editing:item.isEditing}" v-for="(item,index) in filterTodo" :key="item.id">
+                        <div class="view">
+                            <input type="checkbox" v-model="item.completed" class="toggle">
+                            <label @dblclick="enterEdit(index)">{{item.content}}</label>
+                            <button class="destroy" @click="delTodo(item.id)"></button>
+                        </div>
+                        <input v-model="item.content" v-zhaosky @blur="saveEdit(index)" type="text" class="edit">
+                    </li>
+                </transition-group>
+            </ul>
+        </section>
+        <footer class="footer">
+            <span class="todo-count">
+                <strong>{{activeNum}}</strong> item{{activeNum>1?'s':''}} left
+            </span>
+            <ul class="filters">
+                <!-- 
+                    a
+                        :class="{selected:filter=='All'}" 
+                            selected这个类名是否生效 取决于filter这个数据的值
+                        @click="changeFilter('All')"
+                            绑定点击事件 传入 All这个字符串
+                 -->
+                <li>
+                    <a href="#/all" :class="{selected:filter=='All'}" @click="changeFilter('All')">All</a>
+                </li>
+                <li>
+                    <a href="#/active" :class="{selected:filter=='Active'}" @click="changeFilter('Active')">Active</a>
+                </li>
+                <li>
+                    <a href="#/completed" :class="{selected:filter=='Completed'}" @click="changeFilter('Completed')">Completed</a>
+                </li>
+            </ul>
+            <!-- 
+                button
+                    :style="{display: completedNum==0?'none':'block' }" 
+                        绑定display
+                    v-show="completedNum!=0"
+                        显示隐藏
+                    @click="delCompleted"
+                        删除已完成
+             -->
+            <button class="clear-completed" @click="delCompleted" v-show="completedNum!=0">
+                Clear completed
+            </button>
+        </footer>
+    </section>
+    <!-- 作者信息 -->
+    <footer class="info">
+        <p>双击编辑待办事项</p>
+        <p>原作者
+            <a href="http://evanyou.me">Evan You</a>
+        </p>
+        <p>
+            <a href="http://todomvc.com">TodoMVC</a>的一部分</p>
+    </footer>
+</body>
+
+</html>
+<!-- 开发环境版本，包含了有帮助的命令行警告 -->
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<!-- 
+    分析
+        1.维护一个待办事项数组
+            数组的每一个元素应该保存有
+                内容
+                是否已被完成
+        2.点击回车新增内容
+            双向数据绑定
+            增加触发的事件
+            新增完毕之后清空内容
+        3.根据数据生成li
+            找到ul 循环内部的li
+            绑定数据
+            checkbox双向数据绑定
+        4.点击checkbox切换li标签的类名
+            completed 决定了他是否被完成
+        5.点击删除button删除事项
+            绑定点击事件传入index
+            根据index删除数据
+        6.数据常驻
+            读取数据
+                页面打开时读取数据
+            保存数据
+                页面关闭时保存数据
+                每次修改数据时 保存数据到缓存中
+                使用watch来监控todo的改变 每次改变就保存到缓存中
+        7.编辑&保存编辑
+            进入编辑状态
+                双击label
+                通过操纵dom元素的方式 进入编辑状态
+                    通过事件参数获取触发的label 获取父元素 增加类名
+                通过标记变量的方式记录是否编辑状态
+                    为数组的每一个元素增加一个字段
+                    isEditing:默认值 false 
+                    双击时 修改点击的元素的字段 isEditing:true
+                    类名根据 isEditing是否为true决定是否启用
+            保存编辑
+                失去焦点
+                    input标签失去焦点
+        8.筛选
+            点击筛选标签增删类名 selected
+            页面中只显示跟筛选相关的内容
+            使用计算属性 页面中的待办事项循环的内容由todos 替换为计算属性中的内容
+        9.未完成个数
+            计算属性 增加方法 activeNum
+                返回completed 为false的个数
+        10.显示&隐藏删除按钮
+            计算属性 增加方法 completedNum
+                返回completed 为true的个数
+                页面上 的批量删除按钮 显示与否 取决于 completedNum的个数是否不为0
+        11.点击删除已完成的事项
+            绑定点击事件
+            从后往前删除数组中 completed 为true的内容 
+            注意不能从前往后删除 因为删除元素之后数组的长度已经缩短了
+ -->
+<script>
+    // 注册一个全局自定义指令
+    Vue.directive('zhaosky', {
+        // 指令绑定的组件 状态改变时  会自动触发
+        update: function (el) {
+            // console.log(el);
+            // 聚焦元素
+            el.focus()
+        }
+    })
+
+    let app = new Vue({
+        el: '.todoapp',
+        data: {
+            // 输入的内容
+            inputTodo: '',
+            // 待办事项数组 短路 逻辑或(第一个为假,会去找第二个)
+            todos: JSON.parse(window.localStorage.getItem('todo20')) || [],
+            // 筛选的条件
+            filter: 'All' // 可选的值为 全部/待办/已完成
+        },
+        // 事件
+        methods: {
+            // 新增待办事项
+            addTodo() {
+                // 非空判断
+                if (this.inputTodo == '') {
+                    alert('哥们,写点东西呗');
+                    return;
+                }
+                // 新增
+                this.todos.push({
+                    content: this.inputTodo,
+                    completed: false,
+                    isEditing: false, // 是否为编辑状态
+                    // 使用时间戳作为标记
+                    id: Date.now()
+                })
+                // 清空内容
+                this.inputTodo = '';
+            },
+            // 根据索引删除待办事项
+            delTodo(id) {
+                // 删除一个
+                // this.todos.splice(index, 1);
+                // 找到id相等的那个元素删除即可
+                this.todos.forEach((v, i) => {
+                    if (v.id == id) {
+                        this.todos.splice(i, 1);
+                    }
+                })
+            },
+            // 进入编辑状态 vue中也是可以获取到事件参数的
+            enterEdit(index) {
+                // 操纵dom元素的方式实现----
+                // console.log(event);
+                // 加类名 父元素的父元素
+                // console.log(event.target.parentNode.parentNode);
+                // classList h5中的新增的属性
+                // event.target.parentNode.parentNode.classList.add('editing');
+
+                // 排他
+                // this.todos.forEach(v => {
+                //     // console.log(v);
+                //     v.isEditing = false;
+                // })
+                // 根据索引 修改对应数据的编辑状态即可
+                this.todos[index].isEditing = true;
+            },
+            // 保存修改
+            saveEdit(index) {
+                // 修改标记变量
+                this.todos[index].isEditing = !this.todos[index].isEditing;
+            },
+            // 修改筛选条件
+            changeFilter(filter) {
+                // console.log(filter);
+                this.filter = filter;
+            },
+            // 删除已完成的事项
+            delCompleted() {
+                // 遍历 删除
+                // this.todos.forEach((v,i)=>{
+                //     // 如果已完成
+                //     if(v.completed==true){
+                //         // 删除这一个元素
+                //         this.todos.splice(i,1);
+                //     }
+                // })
+                // 删除数组 要从后往前删
+                for (let i = this.todos.length - 1; i >= 0; i--) {
+                    // 如果已完成
+                    if (this.todos[i].completed == true) {
+                        // 删除这一个元素
+                        this.todos.splice(i,1);
+                    }
+                }
+            }
+        }, // watch 会在数据改变时触发
+        // 数据改变时触发 如果监控数据更深层次的改变 必须设置 deep:true
+        // 传送门https://cn.vuejs.org/v2/api/?#watch
+        watch: {
+            // 观察谁就写谁 
+            todos: {
+                handler: function (val, oldVal) {
+                    // console.log('改变啦');
+                    // 保存到缓存中
+                    window.localStorage.setItem('todo20', JSON.stringify(val));
+                },
+                // 深度watch
+                deep: true
+            }
+        }, // 计算属性
+        // 如果某个属性需要经由一些逻辑才可以计算出可以使用 computed计算属性
+        computed: {
+            // 根据filter 筛选不同的结果 返回
+            filterTodo() {
+                // 使用 if else 结合循环数组实现筛选---------
+                // // 根据筛选条件 返回不一样的数据
+                // // 全部
+                // if (this.filter == 'All') {
+                //     // 不筛选直接返回
+                //     return this.todos;
+                // }
+                // // 已完成
+                // // 未完成
+                // // 定义临时数组
+                // let temArr = [];
+                // this.todos.forEach(v => {
+                //     // 添加未完成的
+                //     if (this.filter == 'Active') {
+                //         if (v.completed == false) temArr.push(v)
+                //     } else {
+                //         // 添加已完成的
+                //         if (v.completed) temArr.push(v);
+                //     }
+                // })
+
+                // return temArr;
+
+                // 使用数组的filter方法进行筛选
+                // 全部
+                if (this.filter == 'All') {
+                    // 不筛选直接返回
+                    return this.todos;
+                }
+                // 未完成 已完成 会返回一个新数组
+                // let temArr = this.todos.filter(v => {
+                //     // 如果你要的是 未完成的
+                //     if (this.filter == 'Active') {
+                //         // 要 v.complted==false
+                //         return !v.completed
+                //     } else {
+                //         // 要的是已完成的
+                //         // 要的是 v.completed为true
+                //         return v.completed;
+                //     }
+                // })
+                // return temArr;
+
+                return this.todos.filter(v => {
+                    return this.filter == "Active" ? !v.completed : v.completed
+                })
+
+
+                // 全部合一 (可读性极差)
+                // return this.filter=='All'?this.todos:this.todos.filter(v=>{
+                //     return this.filter=="Active"?!v.completed:v.completed
+                // })
+            }, // 未完成的个数
+            // 未完成的个数
+            activeNum() {
+                // 找到completed 为false的个数
+                // 返回 筛选方法筛选之后的数组的长度
+                let temArr = this.todos.filter(v => {
+                    return !v.completed
+                });
+                // 返回长度
+                return temArr.length;
+            }
+            // 已完成的个数
+            ,
+            completedNum() {
+                // 已完成的个数
+                return this.todos.filter(v => {
+                    return v.completed
+                }).length;
+            }
+        }
+    })
+</script>
